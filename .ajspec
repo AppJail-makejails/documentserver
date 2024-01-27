@@ -1,0 +1,16 @@
+tags+: 13.2
+13.2.arch: amd64
+13.2.name: "documentserver"
+13.2.timestamp.amd64: 1706358450
+13.2.sum.amd64: a175f8e8f02fe7c195c5e59caf7f24ab0103d17511cc3b6fca6e8e94bb88e0bd
+13.2.size.amd64: 876085616
+13.2.source.amd64: "http://appjail.hpc.at/documentserver/13.2-amd64-image.appjail"
+13.2.source.amd64+: "https://images.all101bsd.download/documentserver/13.2-amd64-image.appjail"
+tags+: 14.0
+14.0.arch: amd64
+14.0.name: "documentserver"
+14.0.timestamp.amd64: 1706362020
+14.0.sum.amd64: 39c231d23927f5091c7473c0f523529ac944befc0f6b2e7b10705e5471a3aa2c
+14.0.size.amd64: 875556394
+14.0.source.amd64: "http://appjail.hpc.at/documentserver/14.0-amd64-image.appjail"
+14.0.source.amd64+: "https://images.all101bsd.download/documentserver/14.0-amd64-image.appjail"
