@@ -1,4 +1,3 @@
 OPTION volume=documentserver-db mountpoint:/var/db/onlyoffice owner:303 group:303
 OPTION volume=documentserver-data mountpoint:/usr/local/www/onlyoffice/Data owner:303 group:303
 OPTION volume=documentserver-log mountpoint:/var/log/onlyoffice owner:303 group:303
-OPTION volume=documentserver-rabbitmq-db mountpoint:/var/db/rabbitmq owner:135 group:135 perm:750
