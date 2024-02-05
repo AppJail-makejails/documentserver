@@ -34,6 +34,7 @@ options:
 services:
   documentserver:
     name: documentserver
+    makejail: gh+AppJail-makejails/documentserver
     options:
       - expose: 80
     environment:
