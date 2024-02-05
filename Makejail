@@ -1,0 +1,71 @@
+INCLUDE options/options.makejail
+
+ARG documentserver_tag=13.2
+
+FROM --entrypoint gh+AppJail-makejails/documentserver documentserver:${documentserver_tag}
+
+CMD echo "======> Enabling documentserver services ... <======"
+SYSRC nginx_enable=YES
+SYSRC supervisord_enable=YES
+
+# https://cgit.freebsd.org/ports/commit/sysutils/py-supervisor?id=404e92296eec27639ce09dda28bc25c4f43f2241
+CMD echo "======> Fixing supervisord configuration file ... <======"
+CMD sed -i '' -Ee 's#/tmp/supervisor\.sock#/var/run/supervisor/supervisor.sock#g' /usr/local/etc/supervisord.conf
+
+# Use an IP address instead of a hostname.
+CMD echo "======> Changing 'localhost' -> '127.0.0.1' for each NGINX configuration file ... <======"
+CMD find /usr/local/etc/onlyoffice/documentserver/nginx -name '*.conf' -exec grep -l localhost {} + | xargs sed -i '' -Ee 's/localhost/127.0.0.1/g'
+
+CMD echo "======> Installing scripts ... <======"
+COPY --verbose scripts
+
+CMD echo "======> Configuring 'db' ... <======"
+RUN /scripts/db.sh
+
+CMD echo "======> Configuring 'amqp' ... <======"
+RUN /scripts/amqp.sh
+
+CMD echo "======> Configuring 'supervisord' ... <======"
+RUN /scripts/supervisord.sh
+
+CMD echo "======> Configuring 'redis' ... <======"
+RUN /scripts/redis.sh
+
+CMD echo "======> Configuring 'nginx' ... <======"
+RUN /scripts/nginx.sh
+
+CMD echo "======> Configuring 'jwt' ... <======"
+RUN /scripts/jwt.sh
+
+CMD echo "======> Configuring 'rejectUnauthorized' ... <======"
+RUN /scripts/rejectUnauthorized.sh
+
+CMD echo "======> Configuring 'wopi' ... <======"
+RUN /scripts/wopi.sh
+
+CMD echo "======> Configuring 'ip' ... <======"
+RUN /scripts/ip.sh
+
+CMD echo "======> Configuring 'rejectUnauthorized' <======"
+RUN /scripts/rejectUnauthorized.sh
+
+CMD echo "======> Configuring 'log' ... <======"
+RUN /scripts/log.sh
+
+CMD echo "======> Configuring 'metrics' ... <======"
+RUN /scripts/metrics.sh
+
+CMD echo "======> Configuring 'fonts' ... <======"
+RUN /scripts/fonts.sh
+
+CMD echo "======> Configuring 'plugins' ... <======"
+RUN /scripts/plugins.sh
+
+CMD echo "======> Starting documentserver ... <======"
+RUN /scripts/start-documentserver.sh
+
+CMD echo "======> Executing 'document-static-gzip' <======"
+RUN documentserver-static-gzip.sh
+
+CMD echo "======> Uninstalling scripts ... <======"
+CMD rm -rf /scripts

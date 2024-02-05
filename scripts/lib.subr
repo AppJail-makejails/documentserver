@@ -1,0 +1,42 @@
+ETCDIR="/usr/local/etc/onlyoffice/documentserver"
+ONLYOFFICE_DEFAULT_CONFIG="${ETCDIR}/local.json"
+ONLYOFFICE_LOG4JS_CONFIG="${ETCDIR}/log4js/production.json"
+
+put_local()
+{
+	safe_dasel put -f "${ONLYOFFICE_DEFAULT_CONFIG}" "$@"
+}
+
+put_log4js()
+{
+	safe_dasel put -f "${ONLYOFFICE_LOG4JS_CONFIG}" "$@"
+}
+
+safe_dasel()
+{
+	local out errlevel
+
+	out=`dasel "$@" 2>&1`
+
+	errlevel=$?
+
+	if [ ${errlevel} -ne 0 ]; then
+		err "${out}"
+		exit ${errlevel}
+	fi
+}
+
+warn()
+{
+	echo "##!> $* <!##"
+}
+
+err()
+{
+	echo "###> $* <###"
+}
+
+info()
+{
+	echo "======> $* <======"
+}
