@@ -1,6 +1,6 @@
 INCLUDE options/options.makejail
 
-ARG documentserver_tag=13.3
+ARG documentserver_tag=13.4
 
 FROM --entrypoint gh+AppJail-makejails/documentserver documentserver:${documentserver_tag}
 
