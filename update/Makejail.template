@@ -1,6 +1,6 @@
 INCLUDE options/options.makejail
 
-ARG documentserver_tag=13.4
+ARG documentserver_tag=%%TAG1%%
 ARG documentserver_ajspec=gh+AppJail-makejails/documentserver
 
 FROM --entrypoint "${documentserver_ajspec}" documentserver:${documentserver_tag}
