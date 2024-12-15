@@ -1,4 +1,4 @@
 INCLUDE options/options.makejail
 INCLUDE options/volumes.makejail
 
-PKG dasel onlyoffice-documentserver
+PKG dasel mysql%%MYSQL_VER%%-client onlyoffice-documentserver
