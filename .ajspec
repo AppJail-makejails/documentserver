@@ -1,16 +1,17 @@
 tags+: 13.5
 13.5.arch: amd64
 13.5.name: "documentserver"
-13.5.timestamp.amd64: 1742278868
-13.5.sum.amd64: ce41de192b0dad6c435d0774aa6da7e58266c69dbcce1ec5775c8f136a22fa67
-13.5.size.amd64: 1098135230
-13.5.source.amd64: "http://appjail.hpc.at/documentserver/13.5-amd64-image.appjail"
-13.5.source.amd64+: "https://images.all101bsd.download/documentserver/13.5-amd64-image.appjail"
+13.5.timestamp.amd64: 1746023752
+13.5.sum.amd64: 7aa9203e611cde752661855202d0f31d49987ba73c27564d1295549d604ff147
+13.5.size.amd64: 1111339462
+13.5.source.amd64: "https://images.all101bsd.download/documentserver/13.5-amd64-image.appjail"
+13.5.source.amd64+: "http://appjail.hpc.at/documentserver/13.5-amd64-image.appjail"
 tags+: 14.2
 14.2.arch: amd64
 14.2.name: "documentserver"
-14.2.timestamp.amd64: 1742280722
-14.2.sum.amd64: 936f9427641d3a9248c347e7b62f3313947f155288c73e6243eea40b624741a3
-14.2.size.amd64: 1099774389
-14.2.source.amd64: "http://appjail.hpc.at/documentserver/14.2-amd64-image.appjail"
-14.2.source.amd64+: "https://images.all101bsd.download/documentserver/14.2-amd64-image.appjail"
+14.2.timestamp.amd64: 1746024388
+14.2.sum.amd64: dee98ecffbe73fdc459eb29b0cc4f07d0fcc9999c42d5d02325a483b7a8dbe69
+14.2.size.amd64: 1111246180
+14.2.source.amd64: "https://images.all101bsd.download/documentserver/14.2-amd64-image.appjail"
+14.2.source.amd64+: "http://appjail.hpc.at/documentserver/14.2-amd64-image.appjail"
+maintenance: "This image is uploading, please wait a moment and try again. If you are importing this image using a Makejail that has the '--<name>_ajspec' argument, you can use the 'reproduce' method to use 'appjail-reproduce'. See 'appjail-image(5)' for details."
