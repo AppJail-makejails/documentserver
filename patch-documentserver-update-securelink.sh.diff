@@ -1,0 +1,35 @@
+--- documentserver-update-securelink.sh.orig	2026-08-22 11:49:33.953688000 -0400
++++ documentserver-update-securelink.sh	2026-08-22 12:02:13.823646000 -0400
+@@ -5,7 +5,7 @@
+ 		-s | --secure_link_secret )
+ 			if [ "$2" != "" ]; then
+ 				SECURE_LINK_SECRET=$2
+-				
++				shift
+ 			fi
+ 			
+ 		;;
+@@ -13,12 +13,12 @@
+                 -r | --restart )
+                         if [ "$2" = "true" ] || [ "$2" = "false" ]; then
+                                 RESTART_CONDITION=$2
+-                                
++                                shift
+                         fi
+ 			
+                 ;;
+ 
+-		-h | --help )
++		-? | -h | --help )
+ 			echo "  Usage $0 [PARAMETER] [[PARAMETER], ...]"
+ 			echo "    Parameters:"
+ 			echo "      -s, --secure_link_secret               setting for secret string "
+@@ -27,7 +27,7 @@
+ 			exit 0
+ 		;;
+ 	esac
+-	
++	shift
+ done
+ 
+ NGINX_HTTP_CONF=/usr/local/etc/onlyoffice/documentserver/nginx/ds.conf

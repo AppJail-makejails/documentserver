@@ -1,0 +1,36 @@
+--- documentserver-flush-cache.sh.orig	2026-08-22 12:18:59.700664000 -0400
++++ documentserver-flush-cache.sh	2026-08-22 12:22:55.025205000 -0400
+@@ -1,24 +1,23 @@
+ #!/bin/sh
+ 
+-while [ "$1" != "" ]; do
++while [ $# -gt 0 ]; do
+ 	case $1 in
+ 
+ 		-h | --hash )
+ 			if [ "$2" != "" ]; then
+ 				HASH=$2
+-				
++                shift
+ 			fi
+ 		;;
+ 
+-                -r | --restart )
+-                        if [ "$2" != "" ]; then
+-                                RESTART_CONDITION=$2
+-                                
+-                        fi
+-                ;;
+-
++        -r | --restart )
++            if [ "$2" != "" ]; then
++                RESTART_CONDITION=$2
++                shift
++            fi
++        ;;
+ 	esac
+-	
++	shift
+ done
+ 
+ HASH=${HASH:-$(date +'%Y.%m.%d-%H%M' | openssl md5 | awk '{print $2}')}

@@ -1,0 +1,35 @@
+--- documentserver-pluginsmanager.sh.orig	2026-08-22 12:08:21.839724000 -0400
++++ documentserver-pluginsmanager.sh	2026-08-22 12:13:17.805161000 -0400
+@@ -7,14 +7,14 @@
+ 		-r | --restart )
+ 			if [ "$2" = "true" ] || [ "$2" = "false" ]; then
+ 				RESTART_CONDITION=$2
+-				
++				shift
+ 			fi
+ 			
+ 		;;
+ 		-k | --k8s )
+ 			if [ "$2" != "" ]; then
+ 				K8S_CONTAINER=$2
+-				
++				shift
+ 			fi
+ 		;;
+ 		
+@@ -22,12 +22,13 @@
+ 			break
+ 		;;
+ 	esac
++    shift
+ done
+ 
+ export LD_LIBRARY_PATH=/usr/local/www/onlyoffice/documentserver/server/FileConverter/bin:$LD_LIBRARY_PATH
+ 
+-PLUGIN_MANAGER="//usr/local/www/onlyoffice/documentserver/server/tools/pluginsmanager"
+-PLUGIN_DIR="//usr/local/www/onlyoffice/documentserver/sdkjs-plugins/"
++PLUGIN_MANAGER="/usr/local/www/onlyoffice/documentserver/server/tools/pluginsmanager"
++PLUGIN_DIR="/usr/local/www/onlyoffice/documentserver/sdkjs-plugins/"
+ 
+ "${PLUGIN_MANAGER}" --directory=\"${PLUGIN_DIR}\" "$@"
+ 

@@ -1,28 +1,184 @@
-# Document Server
+# ONLYOFFICE Document Server
 
-OnlyOffice is a free software office suite and ecosystem of collaborative applications. It features online editors for text documents, spreadsheets, presentations, forms and PDFs, and the room-based collaborative platform. 
+ONLYOFFICE Document Server is an online office suite comprising viewers and editors for texts, spreadsheets and presentations, fully compatible with Office Open XML formats: .docx, .xlsx, .pptx and enabling collaborative editing in real time.
 
 wikipedia.org/wiki/OnlyOffice
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/ONLYOFFICE_logo_%28default%29.svg/1024px-ONLYOFFICE_logo_%28default%29.svg.png" width="80%" height="auto">
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/ONLYOFFICE_logo_%28default%29.svg/1280px-ONLYOFFICE_logo_%28default%29.svg.png" width="30%" height="auto" alt="ONLYOFFICE Document Server logo">
 
 ## How to use this Makejail
 
 ### Standalone
 
-```sh
-appjail makejail \
-    -j documentserver \
-    -f gh+AppJail-makejails/documentserver \
+All the data are stored in the specially-designated directories, **data volumes**, at the following location:
+
+* **/var/log/onlyoffice** for ONLYOFFICE Document Server logs
+* **/usr/local/www/onlyoffice/Data** for certificates
+* **/var/db/onlyoffice** for file cache
+
+To get access to your data from outside the container, you need to mount the volumes. It can be done by specifying the `-o fstab` option in the `appjail oci run` command.
+
+```console
+$ mkdir -p /var/appjail-volumes/documentserver/data
+$ mkdir -p /var/appjail-volumes/documentserver/log
+$ mkdir -p /var/appjail-volumes/documentserver/db
+$ appjail oci run -Pd \
+    -o overwrite=force \
     -o virtualnet=":<random> default" \
     -o nat \
-    -o expose=80
+    -o expose=80 \
+    -o fstab="/var/appjail-volumes/documentserver/data /usr/local/www/onlyoffice/Data" \
+    -o fstab="/var/appjail-volumes/documentserver/log /var/log/onlyoffice" \
+    -o fstab="/var/appjail-volumes/documentserver/db /var/db/onlyoffice" \
+    ghcr.io/appjail-makejails/documentserver documentserver
 ```
 
-> [!IMPORTANT]  
-> Note that this Makejail uses some default values. Please read [#environment](#environment) and [#deploy-using-appjail-director](#deploy-using-appjail-director) for more details.
+### Running ONLYOFFICE Document Server on Different Port
 
-### Deploy using appjail-director
+To change the port, use the `-o expose`. E.g.: to make your portal accessible for external hosts via port `8080` execute the following command:
+
+```console
+$ appjail oci run -Pd \
+    -o overwrite=force \
+    -o virtualnet=":<random> default" \
+    -o nat \
+    -o expose=8080:80 \
+    -o fstab="/var/appjail-volumes/documentserver/data /usr/local/www/onlyoffice/Data" \
+    -o fstab="/var/appjail-volumes/documentserver/log /var/log/onlyoffice" \
+    -o fstab="/var/appjail-volumes/documentserver/db /var/db/onlyoffice" \
+    ghcr.io/appjail-makejails/documentserver documentserver
+```
+
+### Running ONLYOFFICE Document Server using HTTPS
+
+Access to the ONLYOFFICE application can be secured using TLS so as to prevent unauthorized access. While a CA certified TLS certificate allows for verification of trust via the CA, a self-signed certificate can also provide an equal level of trust verification as long as each client takes some additional steps to verify the identity of your website. Below the instructions on achieving this are provided.
+
+To secure the application via TLS basically two things are needed:
+
+* **Private key (.key)**
+* **TLS certificate (.crt)**
+
+So you need to create and install the following files:
+
+* `/usr/local/www/onlyoffice/documentserver/Data/certs/tls.key`
+* `/usr/local/www/onlyoffice/documentserver/Data/certs/tls.crt`
+
+When using CA certified certificates (e.g. [Let's Encrypt](https://letsencrypt.org/)), these files are provided to you by the CA. If you are using self-signed certificates you need to generate these files [yourself](#generation-of-self-signed-certificates).
+
+#### Using the automatically generated Let's Encrypt TLS Certificates
+
+```console
+$ appjail oci run -Pd \
+    -o overwrite=force \
+    -o virtualnet=":<random> default" \
+    -o nat \
+    -o expose=80 \
+    -o expose=443 \
+    -o fstab="/var/appjail-volumes/documentserver/data /usr/local/www/onlyoffice/Data" \
+    -o fstab="/var/appjail-volumes/documentserver/log /var/log/onlyoffice" \
+    -o fstab="/var/appjail-volumes/documentserver/db /var/db/onlyoffice" \
+    -e LETS_ENCRYPT_DOMAIN=your_domain \
+    -e LETS_ENCRYPT_MAIL=your_mail \
+    ghcr.io/appjail-makejails/documentserver documentserver
+```
+
+#### Generation of Self Signed Certificates
+
+**STEP 1**: Create the server private key
+
+```console
+$ openssl genrsa 2048 | appjail secrets create documentserver/tls.key
+```
+
+**STEP 2**: Create the certificate signing request (CSR)
+
+```console
+$ appjail secrets cat documentserver/tls.key | openssl req -new -key /dev/stdin -subj "/CN=documentserver.ajnet.appjail" | appjail secrets create documentserver/tls.csr
+```
+
+**STEP 3**: Sign the certificate using the private key and CSR
+
+```console
+$ mkfifo -m 0600 tls.csr.fifo tls.key.fifo
+$ appjail secrets cat documentserver/tls.csr > tls.csr.fifo &
+$ appjail secrets cat documentserver/tls.key > tls.key.fifo &
+$ openssl x509 -req -days 365 -in tls.csr.fifo -signkey tls.key.fifo | appjail secrets create documentserver/tls.crt
+$ rm -f tls.csr.fifo tls.key.fifo
+```
+
+You have now generated a TLS certificate that's valid for 365 days.
+
+#### Strengthening the server security
+
+This section provides you with instructions to [strengthen your server security](https://raymii.org/s/tutorials/Strong_SSL_Security_On_nginx.html). To achieve this you need to generate stronger DHE parameters.
+
+```console
+$ openssl dhparam 2048 | appjail secrets create documentserver/dhparam.pem
+```
+
+#### Installation of the TLS Certificates
+
+Out of the four files generated above, you need to install the `tls.key`, `tls.crt` and `dhparam.pem` files at the ONLYOFFICE server. The CSR file is not needed, but do make sure you safely backup the file (in case you ever need it again).
+
+The default path that the ONLYOFFICE application is configured to look for the TLS certificates is at `/usr/local/www/onlyoffice/Data/certs`, this can however be changed using the `SSL_KEY_PATH`, `SSL_CERTIFICATE_PATH` and `SSL_DHPARAM_PATH` configuration options. Since we have used [AppJail Secrets](https://appjail.readthedocs.io/en/latest/secrets/) to store the certificate, key, and dhparam files, we must use the environment variables mentioned above.
+
+You are now just one step away from having our application secured.
+
+#### Using self-signed certificates with AppJail secrets
+
+```console
+$ appjail oci run -Pd \
+    -o overwrite=force \
+    -o virtualnet=":<random> default" \
+    -o nat \
+    -o expose=80 \
+    -o expose=443 \
+    -o fstab="/var/appjail-volumes/documentserver/data /usr/local/www/onlyoffice/Data" \
+    -o fstab="/var/appjail-volumes/documentserver/log /var/log/onlyoffice" \
+    -o fstab="/var/appjail-volumes/documentserver/db /var/db/onlyoffice" \
+    -o secret="documentserver" \
+    -e SSL_CERTIFICATE_PATH="/secrets/documentserver/tls.crt" \
+    -e SSL_KEY_PATH="/secrets/documentserver/tls.key" \
+    -e SSL_DHPARAM_PATH="/secrets/documentserver/dhparam.pem" \
+    ghcr.io/appjail-makejails/documentserver documentserver
+```
+
+### Available Configuration Parameters
+
+Below is the complete list of parameters that can be set using environment variables.
+
+* **ONLYOFFICE_HTTPS_HSTS_ENABLED**: Advanced configuration option for turning off the HSTS configuration. Applicable only when SSL is in use. Defaults to `true`.
+* **ONLYOFFICE_HTTPS_HSTS_MAXAGE**: Advanced configuration option for setting the HSTS max-age in the ONLYOFFICE nginx vHost configuration. Applicable only when SSL is in use. Defaults to `31536000`.
+* **SSL_CERTIFICATE_PATH**: The path to the SSL certificate to use. Defaults to `/usr/local/www/onlyoffice/Data/certs/tls.crt`.
+* **SSL_KEY_PATH**: The path to the SSL certificate's private key. Defaults to `/usr/local/www/onlyoffice/Data/certs/tls.key`.
+* **SSL_DHPARAM_PATH**: The path to the Diffie-Hellman parameter. Defaults to `/usr/local/www/onlyoffice/Data/certs/dhparam.pem`.
+* **SSL_VERIFY_CLIENT**: Enable verification of client certificates using the `CA_CERTIFICATES_PATH` file. Defaults to `false`
+* **NODE_EXTRA_CA_CERTS**: The [NODE_EXTRA_CA_CERTS](https://nodejs.org/api/cli.html#node_extra_ca_certsfile "Node.js documentation") to extend CAs with the extra certificates for Node.js. Defaults to `/usr/local/www/onlyoffice/Data/certs/extra-ca-certs.pem`.
+* **NGINX_WORKER_PROCESSES**: Defines the number of nginx worker processes.
+* **NGINX_WORKER_CONNECTIONS**: Sets the maximum number of simultaneous connections that can be opened by a nginx worker process. Defaults to the soft limit from `ulimit -n`.
+* **NGINX_ACCESS_LOG**: Defines whether access logging is enabled. Defaults to `false`.
+* **SECURE_LINK_SECRET**: Defines secret for the nginx config directive [secure_link_md5](https://nginx.org/en/docs/http/ngx_http_secure_link_module.html#secure_link_md5). Defaults to `random string`.
+* **JWT_ENABLED**: Specifies the enabling the JSON Web Token validation by the ONLYOFFICE Document Server. Defaults to `true`.
+* **JWT_SECRET**: Defines the secret key to validate the JSON Web Token in the request to the ONLYOFFICE Document Server. Defaults to random value.
+* **JWT_HEADER**: Defines the http header that will be used to send the JSON Web Token. Defaults to `Authorization`.
+* **JWT_IN_BODY**: Specifies the enabling the token validation in the request body to the ONLYOFFICE Document Server. Defaults to `false`.
+* **WOPI_ENABLED**: Specifies the enabling the wopi handlers. Defaults to `false`.
+* **ALLOW_META_IP_ADDRESS**: Defines if it is allowed to connect meta IP address or not. Defaults to `false`.
+* **ALLOW_PRIVATE_IP_ADDRESS**: Defines if it is allowed to connect private IP address or not. Defaults to `false`.
+* **USE_UNAUTHORIZED_STORAGE**: Set to `true` if using self-signed certificates for your storage server e.g. Nextcloud. Defaults to `false`
+* **GENERATE_FONTS**: When 'true' regenerates fonts list and the fonts thumbnails etc. at each start. Defaults to `true`
+* **EXAMPLE_ENABLED**: Enables example service autostart. Defaults to `false`.
+* **METRICS_ENABLED**: Specifies the enabling StatsD for ONLYOFFICE Document Server. Defaults to `false`.
+* **METRICS_HOST**: Defines StatsD listening host. Defaults to `localhost`.
+* **METRICS_PORT**: Defines StatsD listening port. Defaults to `8125`.
+* **METRICS_PREFIX**: Defines StatsD metrics prefix for backend services. Defaults to `ds.`.
+* **LETS_ENCRYPT_DOMAIN**: Defines the domain for Let's Encrypt certificate.
+* **LETS_ENCRYPT_MAIL**: Defines the domain administrator mail address for Let's Encrypt certificate.
+* **PLUGINS_ENABLED**: Defines whether to enable default plugins. Defaults to `true`.
+
+### Installing ONLYOFFICE Document Server using AppJail Director
+
+You can also install ONLYOFFICE Document Server using [appjail-director](https://github.com/DtxdF/director#installation).
 
 **appjail-director.yml**:
 
@@ -36,149 +192,82 @@ services:
     name: documentserver
     makejail: gh+AppJail-makejails/documentserver
     options:
-      - expose: 80
-    environment:
-      - ONLYOFFICE_REDIS_ENABLED: '1'
-      - ONLYOFFICE_SECURELINK_SECRET: 'verysecretstring'
-      - ONLYOFFICE_JWT_ENABLED: 'true'
-      - ONLYOFFICE_DB_TYPE: 'mariadb'
+      - secret: documentserver
+      - container: 'args:--pull'
+    oci:
+      environment:
+        # Enable JSON Web Token validation:
+        - JWT_ENABLED: 'true'
+        - JWT_SECRET: !ENV '${JWT_SECRET:verysecurestring}'
+        - JWT_HEADER: Authorization
+        - JWT_IN_BODY: 'true'
+        # Enable TLS.
+        - SSL_CERTIFICATE_PATH: /secrets/documentserver/tls.crt
+        - SSL_KEY_PATH: /secrets/documentserver/tls.key
+        - SSL_DHPARAM_PATH: /secrets/documentserver/dhparam.pem
+        # Uncomment if you plan to use self-signed certificates with a service
+        # like Nextcloud in a trusted network (e.g. the host).
+        #- NODE_TLS_REJECT_UNAUTHORIZED: 0
+        #- USE_UNAUTHORIZED_STORAGE: 'true'
     volumes:
-      - ds-data: documentserver-data
-      - ds-db: documentserver-db
-      - ds-log: documentserver-log
-
-  db:
-    name: onlyoffice-db
-    makejail: gh+AppJail-makejails/mariadb
-    arguments:
-      - mariadb_user: 'onlyoffice'
-      - mariadb_password: 'onlyoffice'
-      - mariadb_database: 'onlyoffice'
-      - mariadb_root_password: 'onlyoffice-rt'
-    volumes:
-      - mariadb-db: mariadb-db
-      - mariadb-done: mariadb-done
-    priority: 98
-
-  cache:
-    name: onlyoffice-redis
-    makejail: gh+AppJail-makejails/redis
-    priority: 98
-
-  amqp:
-    name: onlyoffice-amqp
-    makejail: ./rabbitmq.makejail
-    volumes:
-      - rabbitmq-db: rabbitmq-db
-      - rabbitmq-log: rabbitmq-log
-    priority: 98
-
-default_volume_type: '<volumefs>'
+      - ds-data: /usr/local/www/onlyoffice/Data
+      - ds-log: /var/log/onlyoffice
+      - ds-db: /var/db/onlyoffice
 
 volumes:
   ds-data:
-    device: .volumes/ds/data
-  ds-db:
-    device: .volumes/ds/db
+    device: '/var/appjail-volumes/documentserver/data'
   ds-log:
-    device: .volumes/ds/log
-  mariadb-db:
-    device: .volumes/mariadb/db
-  mariadb-done:
-    device: .volumes/mariadb/done
-  rabbitmq-db:
-    device: .volumes/rabbitmq/db
-  rabbitmq-log:
-    device: .volumes/rabbitmq/log
-```
-
-**rabbitmq.makejail**:
-
-```
-INCLUDE gh+AppJail-makejails/rabbitmq
-
-RAW if ! appjail cmd jexec "${APPJAIL_JAILNAME}" [ -f "/var/db/rabbitmq/.erlang.cookie" ] || ! appjail cmd jexec "${APPJAIL_JAILNAME}" rabbitmqctl --erlang-cookie `appjail cmd jexec "${APPJAIL_JAILNAME}" cat /var/db/rabbitmq/.erlang.cookie` list_users | cut -d$'\t' -f1 | tail -n +3 | grep -qFw "onlyoffice"; then
-	CMD rabbitmqctl --erlang-cookie `cat /var/db/rabbitmq/.erlang.cookie` add_user onlyoffice onlyoffice
-	CMD rabbitmqctl --erlang-cookie `cat /var/db/rabbitmq/.erlang.cookie` set_user_tags onlyoffice administrator
-	CMD rabbitmqctl --erlang-cookie `cat /var/db/rabbitmq/.erlang.cookie` set_permissions -p / onlyoffice ".*" ".*" ".*"
-RAW fi
+    device: '/var/appjail-volumes/documentserver/log'
+  ds-db:
+    device: '/var/appjail-volumes/documentserver/db'
 ```
 
 **.env**:
 
-```
-DIRECTOR_PROJECT=onlyoffice
-```
-
-Run `appjail-director up` and wait until the project finishes. In just a few minutes you have **ONLYOFFICE** DocumentServer deployed. If you want to redeploy, execute the following commands:
-
-```sh
-appjail-director down -d && 
-    appjail-director up
+```dotenv
+DIRECTOR_PROJECT=documentserver
+# Use 'openssl rand -base64 32' to get a valid JWT secret.
+JWT_SECRET=D3gIWZ2Awqcn5ezvgCNdq8xOZZ6GeprJpm1PeFrysTo=
 ```
 
-### Arguments
+**Profit!**:
 
-* `documentserver_tag` (default: `14.3`): See [#tags](#tags).
-* `documentserver_ajspec` (default: `gh+AppJail-makejails/documentserver`): Entry point where the `appjail-ajspec(5)` file is located.
+```console
+$ appjail-director up
+```
 
-### Environment
+### Arguments (stage: build)
 
-* `ONLYOFFICE_AMQP_TYPE` (default: `rabbitmq`): Queue server to be used. Valid values: `rabbitmq`, `activemq`.
-* `ONLYOFFICE_AMQP_PROTO` (default: `amqp`): Queue protocol. For `activemq` you can use `amqp+ssl` or `amqps` to activate `tls`.
-* `ONLYOFFICE_AMQP_HOST` (default: `onlyoffice-amqp`): Queue server host.
-* `ONLYOFFICE_AMQP_PORT` (default: `5672`): Queue server port.
-* `ONLYOFFICE_AMQP_USER` (default: `onlyoffice`): User name for the queue server.
-* `ONLYOFFICE_AMQP_PASS` (default: `onlyoffice`): Password for the queue server.
-* `ONLYOFFICE_DB_TYPE` (default: `postgres`): Database backend to be used. Valid values: `postgres`, `mariadb`, `mysql`.
-* `ONLYOFFICE_DB_HOST` (default: `onlyoffice-db`): Database server host (host name or IP address).
-* `ONLYOFFICE_DB_PORT` (default: `5432` or `3306`): Database server port. When this environment variable is not defined and `ONLYOFFICE_AMQP_TYPE` is `postgres`, this value is `5432` or `3306` if the queue type is `postgres`.
-* `ONLYOFFICE_DB_USER` (default: `onlyoffice`): User name with superuser permissions for the database account.
-* `ONLYOFFICE_DB_PASS` (default: `onlyoffice`): Password for the database account.
-* `ONLYOFFICE_DB_NAME` (default: `onlyoffice`): Name of a database to be used.
-* `ONLYOFFICE_GENERATE_FONTS` (default: `1`): Run `document-generate-allfonts.sh` when this value is other than `0`.
-* `ONLYOFFICE_ALLOW_META_IP_ADDRESS` (default: `true`): Defines if it is allowed to connect meta IP address or not. Meta address can be `0.0.0.0` (IPv4) or `::` (IPv6) - a meta address that routing another address.
-* `ONLYOFFICE_ALLOW_PRIVATE_IP_ADDRESS` (default: `true`): Defines if it is allowed to connect private IP address or not. This includes private IP addresses and reserved IP addresses.
-* `ONLYOFFICE_JWT_ENABLED` (default: `true`): Defines if a token in is enabled or not.
-* `ONLYOFFICE_JWT_SECRET` (default: `secret`): Defines the secret key used by the JWT.
-* `ONLYOFFICE_JWT_HEADER` (default: `Authorization`): Defines the HTTP header that will be used to send the token.
-* `ONLYOFFICE_JWT_IN_BODY` (default: `false`): Defines if a token is enabled in the request body or not.
-* `ONLYOFFICE_DS_LOG_LEVEL` (optional): DocService log level.
-* `ONLYOFFICE_METRICS_ENABLED` (default: `false`): Defines if the StatsD metrics are enabled for ONLYOFFICE Docs or not.
-* `ONLYOFFICE_NGINX_WORKER_PROCESSES` (default: `auto`): See [worker\_processes](https://nginx.org/en/docs/ngx_core_module.html#worker_processes).
-* `ONLYOFFICE_NGINX_WORKER_CONNECTIONS` (default: `1024`): See [worker\_connections](https://nginx.org/en/docs/ngx_core_module.html#worker_connections).
-* `ONLYOFFICE_SECURELINK_SECRET` (optional): See [Securing URLs with the Secure Link Module in NGINX and NGINX Plus](https://www.nginx.com/blog/securing-urls-secure-link-module-nginx-plus/) for details. A random string is used by default, but it is recommended to configure this environment variable explicitly.
-* `ONLYOFFICE_TLS_CERT_PATH` (optional): Path to a TLS certificate file inside the jail. This enables TLS, so you need to expose `443` to take effect. You should also set 'ONLYOFFICE_TLS_KEY_PATH' and both should exist.
-* `ONLYOFFICE_TLS_KEY_PATH` (optional): Path to a TLS key file inside the jail.
-* `ONLYOFFICE_TLS_DHPARAM_PATH` (optional): Specifies a file inside the jail with DH parameters for DHE ciphers. See [ssl_dhparam](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_dhparam).
-* `ONLYOFFICE_TLS_VERIFY_CLIENT` (default: `off`): See [ssl_verify_client](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_verify_client).
-* `ONLYOFFICE_CA_CERTIFICATES_PATH` (optional): Specifies a file with trusted CA certificates in the PEM format used to verify client certificates and OCSP responses if ssl_stapling is enabled. See [ssl_client_certificate](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_client_certificate).
-* `ONLYOFFICE_HTTPS_HSTS_ENABLED` (default: `0`): Enables HSTS when this value is other than 0.
-* `ONLYOFFICE_HTTPS_HSTS_MAXAGE` (default: `31536000`): The time, in seconds, that the browser should remember that this site is only to be accessed using HTTPS.
-* `ONLYOFFICE_PLUGINS_ENABLED` (default: `0`): Install plugins.
-* `ONLYOFFICE_PLUGINS` (default: `highlightcode;macros;mendeley;ocr;photoeditor;speech;thesaurus;translator;youtube;zotero`): List of plugins to install separated by semicolons.
-* `ONLYOFFICE_REDIS_ENABLED` (default: `0`): Enables Redis.
-* `ONLYOFFICE_REDIS_HOST` (default: `onlyoffice-redis`): Redis server host (host name or IP address).
-* `ONLYOFFICE_REDIS_PORT` (default: `6379`): Redis server port.
-* `ONLYOFFICE_REDIS_PASS` (optional): Password for the Redis account.
-* `ONLYOFFICE_USE_UNAUTHORIZED_STORAGE` (default: `false`): Defines if the certificates will be verified by the Document Server or not.
-* `ONLYOFFICE_WOPI_ENABLED` (default: `false`): Defines if WOPI is enabled or not.
+* `documentserver_from` (default: `ghcr.io/appjail-makejails/documentserver`): Location of OCI image. See also [OCI Configuration](#oci-configuration).
+* `documentserver_tag` (default: `latest`): OCI image tag. See also [OCI Configuration](#oci-configuration).
+
 
 ### Volumes
 
-| Name                | Owner | Group | Perm | Type | Mountpoint                     |
-| ------------------- | ----- | ----- | ---- | ---- | ------------------------------ |
-| documentserver-db   | 303   | 303   |  -   |  -   | /var/db/onlyoffice             |
-| documentserver-data | 303   | 303   |  -   |  -   | /usr/local/www/onlyoffice/Data |
-| documentserver-log  | 303   | 303   |  -   |  -   | /var/log/onlyoffice            |
+| Name | Owner | Group | Perm | Type | Mountpoint |
+| --- | --- | --- | --- | --- | --- |
+| appjail-46163c6bf3-var_db_onlyoffice | `${PUID}` | `${PGID}` | - | - | /var/db/onlyoffice |
+| appjail-4f2f8e1e76-usr_local_www_onlyoffice_Data | `${PUID}` | `${PGID}` | - | - | /usr/local/www/onlyoffice/Data |
+| appjail-7274b415ea-var_log_onlyoffice | `${PUID}` | `${PGID}` | - | - | /var/log/onlyoffice |
 
-## Tags
+## OCI Configuration
 
-| Tag     | Arch    | Version        | Type   |
-| ------- | ------- | -------------- | ------ |
-| `14.3`  | `amd64` | `14.3-RELEASE` | `thin` |
-| `15`  | `amd64` | `15` | `thin` |
+```yaml
+build:
+  variants:
+    - tag: 15.1
+      containerfile: Containerfile
+      aliases: ["latest"]
+      default: true
+      args:
+        FREEBSD_RELEASE: "15.1"
+        PYVER: "312"
+        NO_PKGCLEAN: "1"
+      cache_dirs: ["pkgcache0:/var/cache/pkg"]
+```
 
 ## Notes
 
-* In testing, this Makejail successfully deploy Document Server without problems in the use cases: `HTTP + NO JWT`, `HTTP + JWT`, `HTTPS + NO JWT`, but when `HTTPS + JWT` simply cannot be configured in Nextcloud. A self-signed certificate is used. If you can test this case with a self-signed certificate and/or a certificate signed by a CA, please inform me.
+1. The ideas present in the Docker image of Document Server are taken into account for users who are familiar with it.
+2. Unlike upstream that implement a Dockerfile for the three editions, community, enterprise and developer, the first one is the one that makes sense since the port is based on that edition.
